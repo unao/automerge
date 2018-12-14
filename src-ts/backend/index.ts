@@ -18,7 +18,6 @@ class MaterializationContext {
   unpackValue (parentId: ObjectId, diff: Partial<Diff> | Partial<Conflict>, data: Data) {
     Object.assign(diff, data)
     if ((data as ReferenceData).link) {
-      // @ts-ignore - seems value is expected to be undefined anyway
       this.children[parentId].push(data.value)
     }
   }

@@ -6,6 +6,7 @@ import { isObject } from '../common'
 import uuid from '../uuid'
 
 import { Actor, Inbound, Op, Diff, ObjectId, Key, OpRaw, OpDataBase, ItemT } from '../types'
+import { InstantiateProxy } from './proxies'
 
 /**
  * An instance of this class is passed to `rootObjectProxy()`. The methods are
@@ -20,6 +21,7 @@ export class Context {
   diffs: Diff[]
 
   public instantiateObject!: Function // FIXME: proper typing
+  _get?: (objId: ObjectId) => ReturnType<InstantiateProxy>
 
   constructor (doc: any, readonly actorId: Actor) {
     this.actorId = actorId
@@ -58,7 +60,7 @@ export class Context {
    * Returns the value associated with the property named `key` on the object
    * with ID `objectId`. If the value is an object, returns a proxy for it.
    */
-  getObjectField (objectId: ObjectId, key: Key) {
+  getObjectField (objectId: ObjectId, key: Key | number) {
     const object = this.getObject(objectId)
     if (isObject(object[key])) {
       // The instantiateObject function is added to the context object by rootObjectProxy()

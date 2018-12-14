@@ -2,9 +2,13 @@ import { ROOT_ID } from '../common'
 import { CHANGE } from './constants'
 import { Text } from './text'
 import { Table } from './table'
+import { Key, ObjectId } from '../types'
+import { Context } from './context'
 
-function parseListIndex(key) {
-  if (typeof key === 'string' && /^[0-9]+$/.test(key)) key = parseInt(key)
+export type InstantiateProxy = typeof instantiateProxy
+
+function parseListIndex (key: Key | number) {
+  if (typeof key === 'string' && /^[0-9]+$/.test(key)) key = parseInt(key, 10)
   if (typeof key !== 'number') {
     throw new TypeError('A list index must be a number, but you passed ' + JSON.stringify(key))
   }
@@ -14,14 +18,14 @@ function parseListIndex(key) {
   return key
 }
 
-function listMethods(context, listId) {
+function listMethods (context: Context, listId: ObjectId) {
   const methods = {
-    deleteAt(index, numDelete) {
+    deleteAt (index: number, numDelete: number) {
       context.splice(listId, parseListIndex(index), numDelete || 1, [])
       return this
     },
 
-    fill(value, start, end) {
+    fill (value: any, start: number, end: number) {
       let list = context.getObject(listId)
       for (let index = parseListIndex(start || 0); index < parseListIndex(end || list.length); index++) {
         context.setListIndex(listId, index, value)
@@ -29,35 +33,35 @@ function listMethods(context, listId) {
       return this
     },
 
-    insertAt(index, ...values) {
+    insertAt (index: number, ...values: any[]) {
       context.splice(listId, parseListIndex(index), 0, values)
       return this
     },
 
-    pop() {
+    pop () {
       let list = context.getObject(listId)
-      if (list.length == 0) return
+      if (list.length === 0) return
       const last = context.getObjectField(listId, list.length - 1)
       context.splice(listId, list.length - 1, 1, [])
       return last
     },
 
-    push(...values) {
+    push (...values: any[]) {
       let list = context.getObject(listId)
       context.splice(listId, list.length, 0, values)
       // need to getObject() again because the list object above may be immutable
       return context.getObject(listId).length
     },
 
-    shift() {
+    shift () {
       let list = context.getObject(listId)
-      if (list.length == 0) return
+      if (list.length === 0) return
       const first = context.getObjectField(listId, 0)
       context.splice(listId, 0, 1, [])
       return first
     },
 
-    splice(start, deleteCount, ...values) {
+    splice (start: number, deleteCount: number, ...values: any[]) {
       let list = context.getObject(listId)
       start = parseListIndex(start)
       if (deleteCount === undefined) {
@@ -71,7 +75,7 @@ function listMethods(context, listId) {
       return deleted
     },
 
-    unshift(...values) {
+    unshift (...values: any[]) {
       context.splice(listId, 0, 0, values)
       return context.getObject(listId).length
     }
@@ -79,14 +83,15 @@ function listMethods(context, listId) {
 
   for (let iterator of ['entries', 'keys', 'values']) {
     let list = context.getObject(listId)
-    methods[iterator] = () => list[iterator]()
+    ;(methods as any)[iterator] = () => list[iterator]()
   }
 
+  // TODO: Reflect in typescript
   // Read-only methods that can delegate to the JavaScript built-in implementations
   for (let method of ['concat', 'every', 'filter', 'find', 'findIndex', 'forEach', 'includes',
-                      'indexOf', 'join', 'lastIndexOf', 'map', 'reduce', 'reduceRight',
-                      'slice', 'some', 'toLocaleString', 'toString']) {
-    methods[method] = (...args) => {
+    'indexOf', 'join', 'lastIndexOf', 'map', 'reduce', 'reduceRight',
+    'slice', 'some', 'toLocaleString', 'toString']) {
+    (methods as any)[method] = (...args: any) => {
       const list = context.getObject(listId)
       return list[method].call(list, ...args)
     }
@@ -96,7 +101,8 @@ function listMethods(context, listId) {
 }
 
 const MapHandler = {
-  get (target, key) {
+  // FIXME: improve typing with conditional types
+  get (target: any, key: Key | typeof CHANGE): any {
     const { context, objectId } = target
     if (key === '_inspect') return JSON.parse(JSON.stringify(mapProxy(context, objectId)))
     if (key === '_type') return 'map'
@@ -106,39 +112,39 @@ const MapHandler = {
     return context.getObjectField(objectId, key)
   },
 
-  set (target, key, value) {
+  set (target: any, key: Key, value: any) {
     const { context, objectId } = target
     context.setMapKey(objectId, 'map', key, value)
     return true
   },
 
-  deleteProperty (target, key) {
+  deleteProperty (target: any, key: Key) {
     const { context, objectId } = target
     context.deleteMapKey(objectId, key)
     return true
   },
 
-  has (target, key) {
+  has (target: any, key: Key) {
     const { context, objectId } = target
     return ['_type', '_objectId', CHANGE, '_get'].includes(key) || (key in context.getObject(objectId))
   },
 
-  getOwnPropertyDescriptor (target, key) {
+  getOwnPropertyDescriptor (target: any, key: Key) {
     const { context, objectId } = target
     const object = context.getObject(objectId)
     if (key in object) {
-      return {configurable: true, enumerable: true}
+      return { configurable: true, enumerable: true }
     }
   },
 
-  ownKeys (target) {
+  ownKeys (target: any) {
     const { context, objectId } = target
     return Object.keys(context.getObject(objectId))
   }
 }
 
 const ListHandler = {
-  get (target, key) {
+  get (target: any, key: Key | typeof CHANGE): any {
     const [context, objectId] = target
     if (key === Symbol.iterator) return context.getObject(objectId)[Symbol.iterator]
     if (key === '_inspect') return JSON.parse(JSON.stringify(listProxy(context, objectId)))
@@ -149,22 +155,22 @@ const ListHandler = {
     if (typeof key === 'string' && /^[0-9]+$/.test(key)) {
       return context.getObjectField(objectId, parseListIndex(key))
     }
-    return listMethods(context, objectId)[key]
+    return (listMethods(context, objectId) as any)[key]
   },
 
-  set (target, key, value) {
+  set (target: any, key: Key, value: any) {
     const [context, objectId] = target
     context.setListIndex(objectId, parseListIndex(key), value)
     return true
   },
 
-  deleteProperty (target, key) {
+  deleteProperty (target: any, key: Key) {
     const [context, objectId] = target
     context.splice(objectId, parseListIndex(key), 1, [])
     return true
   },
 
-  has (target, key) {
+  has (target: any, key: Key) {
     const [context, objectId] = target
     if (typeof key === 'string' && /^[0-9]+$/.test(key)) {
       return parseListIndex(key) < context.getObject(objectId).length
@@ -172,20 +178,20 @@ const ListHandler = {
     return ['length', '_type', '_objectId', CHANGE].includes(key)
   },
 
-  getOwnPropertyDescriptor (target, key) {
+  getOwnPropertyDescriptor (target: any, key: Key) {
     if (key === 'length') return {}
-    if (key === '_objectId') return {configurable: true, enumerable: false}
+    if (key === '_objectId') return { configurable: true, enumerable: false }
 
     const [context, objectId] = target
     const object = context.getObject(objectId)
 
     if (typeof key === 'string' && /^[0-9]+$/.test(key)) {
       const index = parseListIndex(key)
-      if (index < object.length) return {configurable: true, enumerable: true}
+      if (index < object.length) return { configurable: true, enumerable: true }
     }
   },
 
-  ownKeys (target) {
+  ownKeys (target: any) {
     const [context, objectId] = target
     const object = context.getObject(objectId)
     let keys = ['length', '_objectId']
@@ -194,11 +200,11 @@ const ListHandler = {
   }
 }
 
-function mapProxy(context, objectId) {
-  return new Proxy({context, objectId}, MapHandler)
+function mapProxy (context: any, objectId: ObjectId) {
+  return new Proxy({ context, objectId }, MapHandler)
 }
 
-function listProxy(context, objectId) {
+function listProxy (context: any, objectId: ObjectId) {
   return new Proxy([context, objectId], ListHandler)
 }
 
@@ -207,7 +213,7 @@ function listProxy(context, objectId) {
  * This function is added as a method to the context object by rootObjectProxy().
  * When it is called, `this` is the context object.
  */
-function instantiateProxy(objectId) {
+function instantiateProxy (this: any, objectId: ObjectId) { // FIXME: this
   const object = this.getObject(objectId)
   if (Array.isArray(object) || (object instanceof Text)) {
     return listProxy(this, objectId)
@@ -218,8 +224,8 @@ function instantiateProxy(objectId) {
   }
 }
 
-export function rootObjectProxy(context) {
+export function rootObjectProxy (context: Context) {
   context.instantiateObject = instantiateProxy
-  context._get = (objId) => instantiateProxy.call(context, objId)
+  context._get = (objId: ObjectId) => instantiateProxy.call(context, objId)
   return mapProxy(context, ROOT_ID)
 }
