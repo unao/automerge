@@ -2,7 +2,7 @@ import { Map, List, fromJS } from 'immutable'
 import { lessOrEqual } from '../common'
 import * as OpSet from './op_set'
 
-import { ObjectId, Diff, Conflict, Data, ReferenceData, Actor, ItemT, OpSet as OpSetT, OpDataBase, Edit, State, Change, Clock } from './types'
+import { ObjectId, Diff, Conflict, Data, ReferenceData, Actor, ItemT, OpSet as OpSetT, OpDataBase, Edit, State, Change, Clock } from '../types'
 
 class MaterializationContext {
   diffs = {} as { [K in ObjectId]: Partial<Diff>[] }

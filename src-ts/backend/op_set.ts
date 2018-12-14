@@ -4,7 +4,7 @@ import { ROOT_ID } from '../common'
 
 import { OpSet, Op, Change, Seq, Actor, Dep, ObjectId, Edit, Result, ListIteratorMode,
   ItemT, ActionT, Conflict, Context, State, ElementId, Key
-} from './types'
+} from '../types'
 
 // Returns true if the two operations are concurrent, that is, they happened without being aware of
 // each other (neither happened before the other). Returns false if one supersedes the other.

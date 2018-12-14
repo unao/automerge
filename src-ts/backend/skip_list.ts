@@ -1,6 +1,6 @@
 import { Map } from 'immutable'
 
-import { KeyOrNull, Value, Count, Level, Distance, IteratorMode } from './types'
+import { KeyOrNull, Value, Count, Level, Distance, IteratorMode } from '../types'
 
 // Returns a random number from the geometric distribution with p = 0.75.
 // That is, returns k with probability p * (1 - p)^(k - 1).
