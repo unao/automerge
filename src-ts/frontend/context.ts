@@ -5,13 +5,23 @@ import { Table } from './table'
 import { isObject } from '../common'
 import uuid from '../uuid'
 
+import { Actor, Inbound, Op, Diff, ObjectId, Key, OpRaw, OpDataBase, ItemT } from '../types'
+
 /**
  * An instance of this class is passed to `rootObjectProxy()`. The methods are
  * called by proxy object mutation functions to query the current object state
  * and to apply the requested changes.
  */
 export class Context {
-  constructor (doc, actorId) {
+  cache: any
+  updated: any
+  inbound: Inbound
+  ops: OpRaw[]
+  diffs: Diff[]
+
+  private instantiateObject!: Function // FIXME: proper typing
+
+  constructor (doc: any, readonly actorId: Actor) {
     this.actorId = actorId
     this.cache = doc[CACHE]
     this.updated = {}
@@ -23,14 +33,14 @@ export class Context {
   /**
    * Adds an operation object to the list of changes made in the current context.
    */
-  addOp(operation) {
+  addOp (operation: OpRaw) {
     this.ops.push(operation)
   }
 
   /**
    * Applies a diff object to the current document state.
    */
-  apply(diff) {
+  apply (diff: Diff) {
     this.diffs.push(diff)
     applyDiffs([diff], this.cache, this.updated, this.inbound)
   }
@@ -38,7 +48,7 @@ export class Context {
   /**
    * Returns an object (not proxied) from the cache or updated set, as appropriate.
    */
-  getObject(objectId) {
+  getObject (objectId: ObjectId) {
     const object = this.updated[objectId] || this.cache[objectId]
     if (!object) throw new RangeError(`Target object does not exist: ${objectId}`)
     return object
@@ -48,7 +58,7 @@ export class Context {
    * Returns the value associated with the property named `key` on the object
    * with ID `objectId`. If the value is an object, returns a proxy for it.
    */
-  getObjectField(objectId, key) {
+  getObjectField (objectId: ObjectId, key: Key) {
     const object = this.getObject(objectId)
     if (isObject(object[key])) {
       // The instantiateObject function is added to the context object by rootObjectProxy()
@@ -63,7 +73,7 @@ export class Context {
    * objects in `value`, and returns the object ID of the root object. If any
    * object is an existing Automerge object, its existing ID is returned.
    */
-  createNestedObjects(value) {
+  createNestedObjects (value: any) {
     if (typeof value[OBJECT_ID] === 'string') return value[OBJECT_ID]
     const objectId = uuid()
 
@@ -72,28 +82,29 @@ export class Context {
       if (value.length > 0) {
         throw new RangeError('Assigning a non-empty Text object is not supported')
       }
-      this.apply({action: 'create', type: 'text', obj: objectId})
-      this.addOp({action: 'makeText', obj: objectId})
+      this.apply({ action: 'create', type: 'text', obj: objectId })
+      this.addOp({ action: 'makeText', obj: objectId })
 
     } else if (value instanceof Table) {
       // Create a new Table object
       if (value.count > 0) {
         throw new RangeError('Assigning a non-empty Table object is not supported')
       }
-      this.apply({action: 'create', type: 'table', obj: objectId})
-      this.addOp({action: 'makeTable', obj: objectId})
+      this.apply({ action: 'create', type: 'table', obj: objectId })
+      this.addOp({ action: 'makeTable', obj: objectId })
+      // @ts-ignore check Table.columns
       this.setMapKey(objectId, 'table', 'columns', value.columns)
 
     } else if (Array.isArray(value)) {
       // Create a new list object
-      this.apply({action: 'create', type: 'list', obj: objectId})
-      this.addOp({action: 'makeList', obj: objectId})
+      this.apply({ action: 'create', type: 'list', obj: objectId })
+      this.addOp({ action: 'makeList', obj: objectId })
       this.splice(objectId, 0, 0, value)
 
     } else {
       // Create a new map object
-      this.apply({action: 'create', type: 'map', obj: objectId})
-      this.addOp({action: 'makeMap', obj: objectId})
+      this.apply({ action: 'create', type: 'map', obj: objectId })
+      this.addOp({ action: 'makeMap', obj: objectId })
 
       for (let key of Object.keys(value)) {
         this.setMapKey(objectId, 'map', key, value[key])
@@ -110,7 +121,7 @@ export class Context {
    * returned; if it is a Date object, `{value: timestamp, datatype: 'timestamp'}`
    * is returned; and if it is a primitive value, `{value}` is returned.
    */
-  setValue(obj, key, value) {
+  setValue (obj: any, key: Key, value: any) {
     if (!['object', 'boolean', 'number', 'string'].includes(typeof value)) {
       throw new TypeError(`Unsupported type of value: ${typeof value}`)
     }
@@ -119,18 +130,18 @@ export class Context {
       if (value instanceof Date) {
         // Date object, translate to timestamp (milliseconds since epoch)
         const timestamp = value.getTime()
-        this.addOp({action: 'set', obj, key, value: timestamp, datatype: 'timestamp'})
-        return {value: timestamp, datatype: 'timestamp'}
+        this.addOp({ action: 'set', obj, key, value: timestamp, datatype: 'timestamp' })
+        return { value: timestamp, datatype: 'timestamp' }
       } else {
         // Reference to another object
         const childId = this.createNestedObjects(value)
-        this.addOp({action: 'link', obj, key, value: childId})
-        return {value: childId, link: true}
+        this.addOp({ action: 'link', obj, key, value: childId })
+        return { value: childId, link: true }
       }
     } else {
       // Primitive value (number, string, boolean, or null)
-      this.addOp({action: 'set', obj, key, value})
-      return {value}
+      this.addOp({ action: 'set', obj, key, value })
+      return { value }
     }
   }
 
@@ -139,7 +150,7 @@ export class Context {
    * `key` to `value`. The `type` argument is 'map' if the object is a map
    * object, or 'table' if it is a table object.
    */
-  setMapKey(objectId, type, key, value) {
+  setMapKey (objectId: ObjectId, type: ItemT, key: Key, value: any) {
     if (typeof key !== 'string') {
       throw new RangeError(`The key of a map entry must be a string, not ${typeof key}`)
     }
@@ -155,18 +166,18 @@ export class Context {
     const object = this.getObject(objectId)
     if (object[key] !== value || object[CONFLICTS][key] || value === undefined) {
       const valueObj = this.setValue(objectId, key, value)
-      this.apply(Object.assign({action: 'set', type, obj: objectId, key}, valueObj))
+      this.apply(Object.assign({ action: 'set', type, obj: objectId, key }, valueObj) as Diff) // FIXME as Diff
     }
   }
 
   /**
    * Updates the map object with ID `objectId`, deleting the property `key`.
    */
-  deleteMapKey(objectId, key) {
+  deleteMapKey (objectId: ObjectId, key: Key) {
     const object = this.getObject(objectId)
     if (object[key] !== undefined) {
-      this.apply({action: 'remove', type: 'map', obj: objectId, key})
-      this.addOp({action: 'del', obj: objectId, key})
+      this.apply({ action: 'remove', type: 'map', obj: objectId, key })
+      this.addOp({ action: 'del', obj: objectId, key })
     }
   }
 
@@ -174,7 +185,7 @@ export class Context {
    * Inserts a new list element `value` at position `index` into the list with
    * ID `objectId`.
    */
-  insertListItem(objectId, index, value) {
+  insertListItem (objectId: ObjectId, index: number, value: any) {
     const list = this.getObject(objectId)
     if (index < 0 || index > list.length) {
       throw new RangeError(`List index ${index} is out of bounds for list of length ${list.length}`)
@@ -184,10 +195,10 @@ export class Context {
     const type = (list instanceof Text) ? 'text' : 'list'
     const prevId = (index === 0) ? '_head' : getElemId(list, index - 1)
     const elemId = `${this.actorId}:${maxElem}`
-    this.addOp({action: 'ins', obj: objectId, key: prevId, elem: maxElem})
+    this.addOp({ action: 'ins', obj: objectId, key: prevId, elem: maxElem })
 
     const valueObj = this.setValue(objectId, elemId, value)
-    this.apply(Object.assign({action: 'insert', type, obj: objectId, index, elemId}, valueObj))
+    this.apply(Object.assign({ action: 'insert', type, obj: objectId, index, elemId }, valueObj) as Diff) // FIXME as Diff
     this.getObject(objectId)[MAX_ELEM] = maxElem
   }
 
@@ -195,7 +206,7 @@ export class Context {
    * Updates the list with ID `objectId`, replacing the current value at
    * position `index` with the new value `value`.
    */
-  setListIndex(objectId, index, value) {
+  setListIndex (objectId: ObjectId, index: number, value: any) {
     const list = this.getObject(objectId)
     if (index === list.length) {
       this.insertListItem(objectId, index, value)
@@ -211,7 +222,7 @@ export class Context {
       const elemId = getElemId(list, index)
       const type = (list instanceof Text) ? 'text' : 'list'
       const valueObj = this.setValue(objectId, elemId, value)
-      this.apply(Object.assign({action: 'set', type, obj: objectId, index}, valueObj))
+      this.apply(Object.assign({ action: 'set', type, obj: objectId, index }, valueObj) as Diff) // FIXME as Diff
     }
   }
 
@@ -220,7 +231,7 @@ export class Context {
    * elements starting from list index `start`, and inserting the list of new
    * elements `insertions` at that position.
    */
-  splice(objectId, start, deletions, insertions) {
+  splice (objectId: ObjectId, start: number, deletions: number, insertions: any[]) {
     let list = this.getObject(objectId)
     const type = (list instanceof Text) ? 'text' : 'list'
 
@@ -230,8 +241,8 @@ export class Context {
       }
 
       for (let i = 0; i < deletions; i++) {
-        this.addOp({action: 'del', obj: objectId, key: getElemId(list, start)})
-        this.apply({action: 'remove', type, obj: objectId, index: start})
+        this.addOp({ action: 'del', obj: objectId, key: getElemId(list, start) })
+        this.apply({ action: 'remove', type, obj: objectId, index: start } as Diff) // FIXME as Diff
 
         // Must refresh object after the first updateListObject call, since the
         // object previously may have been immutable
@@ -248,7 +259,7 @@ export class Context {
    * Updates the table object with ID `objectId`, adding a new entry `row`.
    * Returns the objectId of the new row.
    */
-  addTableRow(objectId, row) {
+  addTableRow (objectId: ObjectId, row: any) {
     if (!isObject(row)) {
       throw new TypeError('A table row must be an object')
     }
@@ -257,16 +268,16 @@ export class Context {
     }
 
     const rowId = this.createNestedObjects(row)
-    this.apply({action: 'set', type: 'table', obj: objectId, key: rowId, value: rowId, link: true})
-    this.addOp({action: 'link', obj: objectId, key: rowId, value: rowId})
+    this.apply({ action: 'set', type: 'table', obj: objectId, key: rowId, value: rowId, link: true })
+    this.addOp({ action: 'link', obj: objectId, key: rowId, value: rowId })
     return rowId
   }
 
   /**
    * Updates the table object with ID `objectId`, deleting the row with ID `rowId`.
    */
-  deleteTableRow(objectId, rowId) {
-    this.apply({action: 'remove', type: 'table', obj: objectId, key: rowId})
-    this.addOp({action: 'del', obj: objectId, key: rowId})
+  deleteTableRow (objectId: ObjectId, rowId: Key) {
+    this.apply({ action: 'remove', type: 'table', obj: objectId, key: rowId })
+    this.addOp({ action: 'del', obj: objectId, key: rowId })
   }
 }
