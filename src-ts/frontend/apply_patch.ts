@@ -3,7 +3,7 @@ import { OBJECT_ID, CONFLICTS, ELEM_IDS, MAX_ELEM } from './constants'
 import { Text } from './text'
 import { Table, instantiateTable } from './table'
 
-import { ElementId } from '../types'
+import { ElementId, Diff, ReferenceData, DateData, Key, ObjectId, Ref, Inbound, Conflict, ListDiff } from '../types'
 
 /**
  * Takes a string in the form that is used to identify list elements (an actor
@@ -15,21 +15,21 @@ function parseElemId (elemId: ElementId) {
   if (!match) {
     throw new RangeError(`Not a valid elemId: ${elemId}`)
   }
-  return [parseInt(match[2], 10), match[1]]
+  return [parseInt(match[2], 10), match[1]] as [number, string]
 }
 
 /**
  * Reconstructs the value from the diff object `diff`.
  */
-function getValue (diff, cache, updated) {
-  if (diff.link) {
+function getValue (diff: Diff, cache: any, updated: any) {
+  if ((diff as ReferenceData).link) {
     // Reference to another object; fetch it from the cache
-    return updated[diff.value] || cache[diff.value]
-  } else if (diff.datatype === 'timestamp') {
+    return updated[(diff as ReferenceData).value] || cache[(diff as ReferenceData).value]
+  } else if ((diff as DateData).datatype === 'timestamp') {
     // Timestamp: value is milliseconds since 1970 epoch
-    return new Date(diff.value)
-  } else if (diff.datatype !== undefined) {
-    throw new TypeError(`Unknown datatype: ${diff.datatype}`)
+    return new Date((diff as DateData).value)
+  } else if ((diff as any).datatype !== undefined) {
+    throw new TypeError(`Unknown datatype: ${(diff as any).datatype}`)
   } else {
     // Primitive value (number, string, boolean, or null)
     return diff.value
@@ -41,9 +41,10 @@ function getValue (diff, cache, updated) {
  * `object` (both `object[key]` and any conflicts under that key). Returns a map
  * from those objectIds to the value `true`.
  */
-function childReferences (object, key) {
-  let refs = {}, conflicts = object[CONFLICTS][key] || {}
-  let children = [object[key]].concat(Object.values(conflicts))
+function childReferences (object: any, key: Key | number) {
+  const refs = {} as any
+  const conflicts = object[CONFLICTS][key] || {}
+  const children = [object[key]].concat(Object.values(conflicts))
   for (let child of children) {
     if (isObject(child)) {
       refs[child[OBJECT_ID]] = true
@@ -58,7 +59,7 @@ function childReferences (object, key) {
  * are objects produced by the `childReferences()` function, containing the IDs
  * of child objects before and after the change, respectively.
  */
-function updateInbound (objectId, refsBefore, refsAfter, inbound) {
+function updateInbound (objectId: ObjectId, refsBefore: Ref, refsAfter: Ref, inbound: Inbound) {
   for (let ref of Object.keys(refsBefore)) {
     if (!refsAfter[ref]) delete inbound[ref]
   }
@@ -75,7 +76,7 @@ function updateInbound (objectId, refsBefore, refsAfter, inbound) {
  * Creates a writable copy of an immutable map object. If `originalObject`
  * is undefined, creates an empty object with ID `objectId`.
  */
-function cloneMapObject (originalObject, objectId) {
+function cloneMapObject (originalObject: any, objectId: ObjectId) {
   if (originalObject && originalObject[OBJECT_ID] !== objectId) {
     throw new RangeError(`cloneMapObject ID mismatch: ${originalObject[OBJECT_ID]} !== ${objectId}`)
   }
@@ -92,32 +93,35 @@ function cloneMapObject (originalObject, objectId) {
  * updated writable object is written to `updated`. `inbound` is a mapping from
  * child objectId to parent objectId; it is updated according to the change.
  */
-function updateMapObject (diff, cache, updated, inbound) {
+function updateMapObject (diff: Diff, cache: any, updated: any, inbound: Inbound) {
   if (!updated[diff.obj]) {
     updated[diff.obj] = cloneMapObject(cache[diff.obj], diff.obj)
   }
-  let object = updated[diff.obj], conflicts = object[CONFLICTS]
-  let refsBefore = {}, refsAfter = {}
+  const object = updated[diff.obj]
+  const conflicts = object[CONFLICTS] as { [K in Key]: Conflict } // FIXME
+  let refsBefore: Ref = {}
+  let refsAfter: Ref = {}
 
   if (diff.action === 'create') {
     // do nothing
   } else if (diff.action === 'set') {
-    refsBefore = childReferences(object, diff.key)
-    object[diff.key] = getValue(diff, cache, updated)
+    // FIXME -- 'set' requires key
+    refsBefore = childReferences(object, diff.key as Key)
+    object[diff.key as Key] = getValue(diff, cache, updated)
     if (diff.conflicts) {
-      conflicts[diff.key] = {}
+      conflicts[diff.key as Key] = {} as Conflict // FIXME
       for (let conflict of diff.conflicts) {
-        conflicts[diff.key][conflict.actor] = getValue(conflict, cache, updated)
+        (conflicts[diff.key as Key] as any)[conflict.actor] = getValue(conflict as any, cache, updated)
       }
-      Object.freeze(conflicts[diff.key])
+      Object.freeze(conflicts[diff.key as Key])
     } else {
-      delete conflicts[diff.key]
+      delete conflicts[diff.key as Key]
     }
-    refsAfter = childReferences(object, diff.key)
+    refsAfter = childReferences(object, diff.key as Key)
   } else if (diff.action === 'remove') {
-    refsBefore = childReferences(object, diff.key)
-    delete object[diff.key]
-    delete conflicts[diff.key]
+    refsBefore = childReferences(object, diff.key as Key)
+    delete object[diff.key as Key]
+    delete conflicts[diff.key as Key]
   } else {
     throw new RangeError('Unknown action type: ' + diff.action)
   }
@@ -130,7 +134,7 @@ function updateMapObject (diff, cache, updated, inbound) {
  * have been updated in `updated` are replaced with references to the updated
  * version.
  */
-function parentMapObject (objectId, cache, updated) {
+function parentMapObject (objectId: ObjectId, cache: any, updated: any) {
   if (!updated[objectId]) {
     updated[objectId] = cloneMapObject(cache[objectId], objectId)
   }
@@ -142,7 +146,8 @@ function parentMapObject (objectId, cache, updated) {
       object[key] = updated[value[OBJECT_ID]]
     }
 
-    let conflicts = object[CONFLICTS][key] || {}, conflictsUpdate = null
+    const conflicts = object[CONFLICTS][key] || {}
+    let conflictsUpdate = null as any
     for (let actorId of Object.keys(conflicts)) {
       value = conflicts[actorId]
       if (isObject(value) && updated[value[OBJECT_ID]]) {
@@ -166,21 +171,22 @@ function parentMapObject (objectId, cache, updated) {
  * updated writable object is written to `updated`. `inbound` is a mapping from
  * child objectId to parent objectId; it is updated according to the change.
  */
-function updateTableObject (diff, cache, updated, inbound) {
+function updateTableObject (diff: Diff, cache: any, updated: any, inbound: Inbound) {
   if (!updated[diff.obj]) {
     updated[diff.obj] = cache[diff.obj] ? cache[diff.obj]._clone() : instantiateTable(diff.obj)
   }
-  let object = updated[diff.obj]
-  let refsBefore = {}, refsAfter = {}
+  const object = updated[diff.obj]
+  let refsBefore: Ref = {}
+  let refsAfter: Ref = {}
 
   if (diff.action === 'create') {
     // do nothing
   } else if (diff.action === 'set') {
     const previous = object.byId(diff.key)
     if (isObject(previous)) refsBefore[previous[OBJECT_ID]] = true
-    if (diff.link) {
-      object.set(diff.key, updated[diff.value] || cache[diff.value])
-      refsAfter[diff.value] = true
+    if ((diff as ReferenceData).link) {
+      object.set(diff.key, updated[(diff as ReferenceData).value] || cache[(diff as ReferenceData).value])
+      refsAfter[(diff as ReferenceData).value] = true
     } else {
       object.set(diff.key, diff.value)
     }
@@ -200,7 +206,7 @@ function updateTableObject (diff, cache, updated, inbound) {
  * have been updated in `updated` are replaced with references to the updated
  * version.
  */
-function parentTableObject (objectId, cache, updated) {
+function parentTableObject (objectId: ObjectId, cache: any, updated: any) {
   if (!updated[objectId]) {
     updated[objectId] = cache[objectId]._clone()
   }
@@ -218,7 +224,7 @@ function parentTableObject (objectId, cache, updated) {
  * Creates a writable copy of an immutable list object. If `originalList` is
  * undefined, creates an empty list with ID `objectId`.
  */
-function cloneListObject (originalList, objectId) {
+function cloneListObject (originalList: any, objectId: ObjectId) {
   if (originalList && originalList[OBJECT_ID] !== objectId) {
     throw new RangeError(`cloneListObject ID mismatch: ${originalList[OBJECT_ID]} !== ${objectId}`)
   }
@@ -239,25 +245,29 @@ function cloneListObject (originalList, objectId) {
  * updated writable object is written to `updated`. `inbound` is a mapping from
  * child objectId to parent objectId; it is updated according to the change.
  */
-function updateListObject (diff, cache, updated, inbound) {
+function updateListObject (diff: ListDiff, cache: any, updated: any, inbound: Inbound) {
   if (!updated[diff.obj]) {
     updated[diff.obj] = cloneListObject(cache[diff.obj], diff.obj)
   }
-  let list = updated[diff.obj], conflicts = list[CONFLICTS], elemIds = list[ELEM_IDS]
-  let value = null, conflict = null
+  const list = updated[diff.obj]
+  const conflicts = list[CONFLICTS]
+  const elemIds = list[ELEM_IDS]
+  let value = null
+  let conflict = null
 
   if (['insert', 'set'].includes(diff.action)) {
     value = getValue(diff, cache, updated)
     if (diff.conflicts) {
-      conflict = {}
+      conflict = {} as any
       for (let c of diff.conflicts) {
-        conflict[c.actor] = getValue(c, cache, updated)
+        conflict[c.actor] = getValue(c as any, cache, updated)
       }
       Object.freeze(conflict)
     }
   }
 
-  let refsBefore = {}, refsAfter = {}
+  let refsBefore: Ref = {}
+  let refsAfter: Ref = {}
   if (diff.action === 'create') {
     // do nothing
   } else if (diff.action === 'insert') {
@@ -274,7 +284,7 @@ function updateListObject (diff, cache, updated, inbound) {
   } else if (diff.action === 'remove') {
     refsBefore = childReferences(list, diff.index)
     list.splice(diff.index, 1)
-    conflicts.splice(diff.index, 1) || {}
+    conflicts.splice(diff.index, 1)
     elemIds.splice(diff.index, 1)
   } else {
     throw new RangeError('Unknown action type: ' + diff.action)
@@ -288,7 +298,7 @@ function updateListObject (diff, cache, updated, inbound) {
  * have been updated in `updated` are replaced with references to the updated
  * version.
  */
-function parentListObject (objectId, cache, updated) {
+function parentListObject (objectId: ObjectId, cache: any, updated: any) {
   if (!updated[objectId]) {
     updated[objectId] = cloneListObject(cache[objectId], objectId)
   }
@@ -300,7 +310,8 @@ function parentListObject (objectId, cache, updated) {
       list[index] = updated[value[OBJECT_ID]]
     }
 
-    let conflicts = list[CONFLICTS][index] || {}, conflictsUpdate = null
+    const conflicts = list[CONFLICTS][index] || {}
+    let conflictsUpdate = null
     for (let actorId of Object.keys(conflicts)) {
       value = conflicts[actorId]
       if (isObject(value) && updated[value[OBJECT_ID]]) {
@@ -324,7 +335,8 @@ function parentListObject (objectId, cache, updated) {
  * indexed by objectId; the existing read-only object is taken from `cache`,
  * and the updated object is written to `updated`.
  */
-function updateTextObject (diffs, startIndex, endIndex, cache, updated) {
+function updateTextObject (diffs: ListDiff[], startIndex: number, endIndex: number, cache: any, updated: any) {
+  // TODO: make sure that ListDiff works for Text
   const objectId = diffs[startIndex].obj
   if (!updated[objectId]) {
     if (cache[objectId]) {
@@ -336,8 +348,11 @@ function updateTextObject (diffs, startIndex, endIndex, cache, updated) {
     }
   }
 
-  let elems = updated[objectId].elems, maxElem = updated[objectId][MAX_ELEM]
-  let splicePos = -1, deletions, insertions
+  const elems = updated[objectId].elems
+  let maxElem = updated[objectId][MAX_ELEM]
+  let splicePos = -1
+  let deletions: number
+  let insertions
 
   while (startIndex <= endIndex) {
     const diff = diffs[startIndex]
@@ -351,11 +366,11 @@ function updateTextObject (diffs, startIndex, endIndex, cache, updated) {
         insertions = []
       }
       maxElem = Math.max(maxElem, parseElemId(diff.elemId)[0])
-      insertions.push({ elemId: diff.elemId, value: diff.value, conflicts: diff.conflicts })
+      ;(insertions as any).push({ elemId: diff.elemId, value: diff.value, conflicts: diff.conflicts })
 
       if (startIndex === endIndex || diffs[startIndex + 1].action !== 'insert' ||
         diffs[startIndex + 1].index !== diff.index + 1) {
-        elems.splice(splicePos, deletions, ...insertions)
+        elems.splice(splicePos, deletions!, ...insertions as any)
         splicePos = -1
       }
 
@@ -372,12 +387,12 @@ function updateTextObject (diffs, startIndex, endIndex, cache, updated) {
         deletions = 0
         insertions = []
       }
-      deletions += 1
+      deletions! += 1
 
       if (startIndex === endIndex ||
         !['insert', 'remove'].includes(diffs[startIndex + 1].action) ||
         diffs[startIndex + 1].index !== diff.index) {
-        elems.splice(splicePos, deletions)
+        elems.splice(splicePos, deletions!)
         splicePos = -1
       }
     } else {
@@ -397,10 +412,10 @@ function updateTextObject (diffs, startIndex, endIndex, cache, updated) {
  * from child objectId to parent objectId. Any objects that were not modified
  * continue to refer to the existing version in `cache`.
  */
-export function updateParentObjects (cache, updated, inbound) {
+export function updateParentObjects (cache: any, updated: any, inbound: Inbound) {
   let affected = updated
   while (Object.keys(affected).length > 0) {
-    let parents = {}
+    let parents = {} as any
     for (let childId of Object.keys(affected)) {
       const parentId = inbound[childId]
       if (parentId) parents[parentId] = true
@@ -426,7 +441,7 @@ export function updateParentObjects (cache, updated, inbound) {
  * `updated`. `inbound` is a mapping from child objectId to parent objectId;
  * it is updated according to the change.
  */
-export function applyDiffs (diffs, cache, updated, inbound) {
+export function applyDiffs (diffs: Diff[], cache: any, updated: any, inbound: Inbound) {
   let startIndex = 0
   for (let endIndex = 0; endIndex < diffs.length; endIndex++) {
     const diff = diffs[endIndex]
@@ -438,11 +453,11 @@ export function applyDiffs (diffs, cache, updated, inbound) {
       updateTableObject(diff, cache, updated, inbound)
       startIndex = endIndex + 1
     } else if (diff.type === 'list') {
-      updateListObject(diff, cache, updated, inbound)
+      updateListObject(diff as ListDiff, cache, updated, inbound)
       startIndex = endIndex + 1
     } else if (diff.type === 'text') {
       if (endIndex === diffs.length - 1 || diffs[endIndex + 1].obj !== diff.obj) {
-        updateTextObject(diffs, startIndex, endIndex, cache, updated)
+        updateTextObject(diffs as ListDiff[], startIndex, endIndex, cache, updated)
         startIndex = endIndex + 1
       }
     } else {
@@ -454,7 +469,7 @@ export function applyDiffs (diffs, cache, updated, inbound) {
 /**
  * Creates a writable copy of the immutable document root object `root`.
  */
-export function cloneRootObject (root) {
+export function cloneRootObject (root: any) {
   if (root[OBJECT_ID] !== ROOT_ID) {
     throw new RangeError(`Not the root object: ${root[OBJECT_ID]}`)
   }
