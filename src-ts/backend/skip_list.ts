@@ -1,5 +1,7 @@
 import { Map } from 'immutable'
 
+import { KeyOrNull, Value, Count, Level, Distance, IteratorMode } from './types'
+
 // Returns a random number from the geometric distribution with p = 0.75.
 // That is, returns k with probability p * (1 - p)^(k - 1).
 // For example, returns 1 with probability 3/4, returns 2 with probability 3/16,
@@ -20,18 +22,9 @@ function randomLevel () {
   }
 }
 
-type Key = string | null
-type Count = any
-
-type Value = any
-type Level = number
-type Distance = number
-
-type IteratorMode = 'keys' | 'values' | 'entries'
-
 class Node<V = Value> {
-  constructor (readonly key: Key, readonly value: V, readonly level: Level,
-    readonly prevKey: ReadonlyArray<Key>, readonly nextKey: ReadonlyArray<Key>,
+  constructor (readonly key: KeyOrNull, readonly value: V, readonly level: Level,
+    readonly prevKey: ReadonlyArray<KeyOrNull>, readonly nextKey: ReadonlyArray<KeyOrNull>,
     readonly prevCount: ReadonlyArray<Count>, readonly nextCount: ReadonlyArray<Count>) {
     this.key = key
     this.value = value
@@ -43,12 +36,12 @@ class Node<V = Value> {
     Object.freeze(this)
   }
 
-  setValue (key: Key, value: V) {
+  setValue (key: KeyOrNull, value: V) {
     return new Node(this.key, value, this.level, this.prevKey, this.nextKey,
       this.prevCount, this.nextCount)
   }
 
-  insertAfter (newKey: Key, newLevel: Level, fromLevel: Level, distance: Distance) {
+  insertAfter (newKey: KeyOrNull, newLevel: Level, fromLevel: Level, distance: Distance) {
     if (newLevel > this.level && this.key !== null) {
       throw new RangeError('Cannot increase the level of a non-head node')
     }
@@ -69,7 +62,7 @@ class Node<V = Value> {
       this.prevKey, nextKey, this.prevCount, nextCount)
   }
 
-  insertBefore (newKey: Key, newLevel: Level, fromLevel: Level, distance: Distance) {
+  insertBefore (newKey: KeyOrNull, newLevel: Level, fromLevel: Level, distance: Distance) {
     if (newLevel > this.level) throw new RangeError('Cannot increase node level')
     const prevKey = this.prevKey.slice()
     const prevCount = this.prevCount.slice()
@@ -87,7 +80,7 @@ class Node<V = Value> {
       prevKey, this.nextKey, prevCount, this.nextCount)
   }
 
-  removeAfter (fromLevel: Level, removedLevel: Level, newKeys: Key[], distances: Distance[]) {
+  removeAfter (fromLevel: Level, removedLevel: Level, newKeys: KeyOrNull[], distances: Distance[]) {
     const nextKey = this.nextKey.slice()
     const nextCount = this.nextCount.slice()
 
@@ -104,7 +97,7 @@ class Node<V = Value> {
       this.prevKey, nextKey, this.prevCount, nextCount)
   }
 
-  removeBefore (fromLevel: Level, removedLevel: Level, newKeys: Key[], distances: Distance[]) {
+  removeBefore (fromLevel: Level, removedLevel: Level, newKeys: KeyOrNull[], distances: Distance[]) {
     const prevKey = this.prevKey.slice()
     const prevCount = this.prevCount.slice()
 
@@ -127,7 +120,7 @@ export class SkipList {
   private _nodes!: Map<any, Node>
   private _randomSource!: ReturnType<typeof randomLevel>
 
-  constructor (randomSource: typeof randomLevel) {
+  constructor (randomSource?: typeof randomLevel) {
     const head = new Node(null, null, 1, [], [null], [], [null])
     const random = randomSource ? randomSource() : randomLevel()
     return makeInstance(0, Map<any, Node>().set(null as any, head), random)
@@ -137,8 +130,8 @@ export class SkipList {
     return this._nodes.get(null)
   }
 
-  predecessors (predecessor: Key, maxLevel: Level) {
-    const preKeys: Key[] = [predecessor]
+  predecessors (predecessor: KeyOrNull, maxLevel: Level) {
+    const preKeys: KeyOrNull[] = [predecessor]
     const preCounts: Count[] = [1]
 
     for (let level = 1; level < maxLevel; level++) {
@@ -160,8 +153,8 @@ export class SkipList {
     return { preKeys, preCounts }
   }
 
-  successors (successor: Key, maxLevel: Level) {
-    const sucKeys: Key[] = [successor]
+  successors (successor: KeyOrNull, maxLevel: Level) {
+    const sucKeys: KeyOrNull[] = [successor]
     const sucCounts: Count[] = [1]
 
     for (let level = 1; level < maxLevel; level++) {
@@ -185,7 +178,7 @@ export class SkipList {
 
   // Inserts a new list element immediately after the element with key `predecessor`.
   // If predecessor === null, inserts at the head of the list.
-  insertAfter (predecessor: Key, key: Key, value: Value) {
+  insertAfter (predecessor: KeyOrNull, key: KeyOrNull, value: Value) {
     if (typeof key !== 'string' || key === '') {
       throw new RangeError('Key must be a nonempty string')
     }
@@ -227,7 +220,7 @@ export class SkipList {
     }), this._randomSource)
   }
 
-  insertIndex (index: number, key: Key, value: Value) {
+  insertIndex (index: number, key: KeyOrNull, value: Value) {
     if (typeof index !== 'number' || index < 0) {
       throw new RangeError('Index must be a non-negative integer')
     }
@@ -238,7 +231,7 @@ export class SkipList {
     }
   }
 
-  removeKey (key: Key) {
+  removeKey (key: KeyOrNull) {
     if (typeof key !== 'string' || !this._nodes.has(key)) {
       throw new RangeError('The given key cannot be removed because it does not exist')
     }
@@ -277,7 +270,7 @@ export class SkipList {
     return this.removeKey(this.keyOf(index))
   }
 
-  indexOf (key: Key) {
+  indexOf (key: KeyOrNull) {
     if (typeof key !== 'string' || key === '' || !this._nodes.has(key)) return -1
     let node = this._nodes.get(key)
     let count: Count = 0
@@ -308,7 +301,7 @@ export class SkipList {
     }
   }
 
-  getValue (key: Key) {
+  getValue (key: KeyOrNull) {
     if (typeof key !== 'string' || key === '') {
       throw new RangeError('Key must be a nonempty string')
     }
@@ -316,7 +309,7 @@ export class SkipList {
     return node && node.value
   }
 
-  setValue (key: Key, value: Value) {
+  setValue (key: KeyOrNull, value: Value) {
     if (typeof key !== 'string' || key === '') {
       throw new RangeError('Key must be a nonempty string')
     }

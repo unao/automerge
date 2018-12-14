@@ -1,41 +1,10 @@
 import { Map, List, Set } from 'immutable'
 import { SkipList } from './skip_list'
-const ROOT_ID = '00000000-0000-0000-0000-000000000000'
+import { ROOT_ID } from '../common'
 
-type OpSet = Map<any, any>
-type Op = Map<any, any>
-type Change = Map<any, any>
-type Dep = any
-type Seq = number
-type Actor = string
-type ObjectId = string
-type ElementId = string
-type DataType = any
-type State = Map<any, any>
-
-type Context = any
-
-type Key = string
-type Path = Key[] | null
-
-interface Conflict { actor: Actor, value: any, link?: boolean }
-
-type OpActionT = 'makeMap' | 'makeTable' | 'makeText' | 'link' /* 'makeList' */
-type ActionT = 'create' | 'insert' | 'set' | 'remove'
-type ItemT = 'map' | 'table' | 'text' | 'list'
-
-type ListIteratorMode = 'keys' | 'values' | 'entries' | 'elems' | 'conflicts'
-
-interface Edit {
-  action: ActionT, obj: ObjectId, type: ItemT,
-  key: Key, value: any, datatype: DataType, elemId: ElementId,
-  link: boolean, index: number, path: Path, conflicts: Conflict[]
-}
-
-interface Result {
-  value: any
-  datatype: DataType
-}
+import { OpSet, Op, Change, Seq, Actor, Dep, ObjectId, Edit, Result, ListIteratorMode,
+  ItemT, ActionT, Conflict, Context, State, ElementId, Key
+} from './types'
 
 // Returns true if the two operations are concurrent, that is, they happened without being aware of
 // each other (neither happened before the other). Returns false if one supersedes the other.
@@ -383,7 +352,7 @@ function addChange (opSet: OpSet, change: Change, isUndoable: boolean) {
   }
 }
 
-function getMissingChanges (opSet: OpSet, haveDeps: any[]) {
+function getMissingChanges (opSet: OpSet, haveDeps: any) {
   const allDeps = transitiveDeps(opSet, haveDeps)
   return opSet.get('states')
     .map((states: List<State>, actor: Actor) => states.skip(allDeps.get(actor, 0)))
@@ -392,9 +361,7 @@ function getMissingChanges (opSet: OpSet, haveDeps: any[]) {
     .map((state: State) => state.get('change'))
 }
 
-function getChangesForActor (opSet: OpSet, forActor: Actor, afterSeq: Seq) {
-  afterSeq = afterSeq || 0
-
+function getChangesForActor (opSet: OpSet, forActor: Actor, afterSeq: Seq = 0) {
   return opSet.get('states')
     .filter((states: List<State>, actor: Actor) => actor === forActor)
     .map((states: List<State>, actor: Actor) => states.skip(afterSeq))
@@ -568,7 +535,7 @@ function listIterator (opSet: OpSet, listId: string, mode: ListIteratorMode, con
 
   const iterator = { next }
   ;(iterator as any)[Symbol.iterator] = () => { return iterator }
-  return iterator as unknown as Iterable<any>
+  return iterator as unknown as Iterator<any> & { [Symbol.iterator]: any}
 }
 
 export {
