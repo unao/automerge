@@ -9,5 +9,4 @@ function makeUuid () {
 makeUuid.setFactory = (newFactory: typeof uuid) => factory = newFactory
 makeUuid.reset = () => factory = uuid
 
-// todo: use es/typescript export
-module.exports = makeUuid
+export default makeUuid

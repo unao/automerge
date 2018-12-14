@@ -2,7 +2,7 @@ const assert = require('assert')
 const Frontend = require('../src/frontend')
 const Backend = require('../src/backend')
 const ROOT_ID = '00000000-0000-0000-0000-000000000000'
-const uuid = require('../src/uuid')
+const uuid = require('../src/uuid').default
 const { STATE } = require('../src/frontend/constants')
 
 describe('Frontend', () => {
