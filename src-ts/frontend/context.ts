@@ -1,8 +1,8 @@
-const { CACHE, INBOUND, OBJECT_ID, CONFLICTS, MAX_ELEM } = require('./constants')
-const { applyDiffs } = require('./apply_patch')
-const { Text, getElemId } = require('./text')
-const { Table } = require('./table')
-const { isObject } = require('../common')
+import { CACHE, INBOUND, OBJECT_ID, CONFLICTS, MAX_ELEM } from './constants'
+import { applyDiffs } from './apply_patch'
+import { Text, getElemId } from './text'
+import { Table } from './table'
+import { isObject } from '../common'
 import uuid from '../uuid'
 
 /**
@@ -10,7 +10,7 @@ import uuid from '../uuid'
  * called by proxy object mutation functions to query the current object state
  * and to apply the requested changes.
  */
-class Context {
+export class Context {
   constructor (doc, actorId) {
     this.actorId = actorId
     this.cache = doc[CACHE]
@@ -269,8 +269,4 @@ class Context {
     this.apply({action: 'remove', type: 'table', obj: objectId, key: rowId})
     this.addOp({action: 'del', obj: objectId, key: rowId})
   }
-}
-
-module.exports = {
-  Context
 }

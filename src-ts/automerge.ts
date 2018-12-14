@@ -1,8 +1,8 @@
-const transit = require('transit-immutable-js')
+import transit from 'transit-immutable-js'
 import uuid from './uuid'
-const Frontend = require('./frontend')
-const Backend = require('./backend')
-const { isObject } = require('./common')
+import * as Frontend from './frontend'
+import * as Backend from './backend'
+import { isObject } from './common'
 
 /**
  * Constructs a new frontend document that reflects the given list of changes.

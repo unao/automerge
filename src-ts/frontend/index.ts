@@ -1,11 +1,11 @@
-const { OPTIONS, CACHE, INBOUND, STATE, OBJECT_ID, CONFLICTS, CHANGE, ELEM_IDS } = require('./constants')
-const { ROOT_ID, isObject } = require('../common')
+import { OPTIONS, CACHE, INBOUND, STATE, OBJECT_ID, CONFLICTS, CHANGE, ELEM_IDS } from './constants'
+import { ROOT_ID, isObject } from '../common'
 import uuid from '../uuid'
-const { applyDiffs, updateParentObjects, cloneRootObject } = require('./apply_patch')
-const { rootObjectProxy } = require('./proxies')
-const { Context } = require('./context')
-const { Text } = require('./text')
-const { Table } = require('./table')
+import { applyDiffs, updateParentObjects, cloneRootObject } from './apply_patch'
+import { rootObjectProxy } from './proxies'
+import { Context } from './context'
+import { Text } from './text'
+import { Table } from './table'
 
 /**
  * Takes a set of objects that have been updated (in `updated`) and an updated
@@ -13,17 +13,17 @@ const { Table } = require('./table')
  * a new immutable document root object based on `doc` that reflects those
  * updates. The state object `state` is attached to the new root object.
  */
-function updateRootObject(doc, updated, inbound, state) {
+function updateRootObject (doc, updated, inbound, state) {
   let newDoc = updated[ROOT_ID]
   if (!newDoc) {
     newDoc = cloneRootObject(doc[CACHE][ROOT_ID])
     updated[ROOT_ID] = newDoc
   }
-  Object.defineProperty(newDoc, '_actorId', {value: getActorId(doc)})
-  Object.defineProperty(newDoc, OPTIONS,  {value: doc[OPTIONS]})
-  Object.defineProperty(newDoc, CACHE,    {value: updated})
-  Object.defineProperty(newDoc, INBOUND,  {value: inbound})
-  Object.defineProperty(newDoc, STATE,    {value: state})
+  Object.defineProperty(newDoc, '_actorId', { value: getActorId(doc) })
+  Object.defineProperty(newDoc, OPTIONS, { value: doc[OPTIONS] })
+  Object.defineProperty(newDoc, CACHE, { value: updated })
+  Object.defineProperty(newDoc, INBOUND, { value: inbound })
+  Object.defineProperty(newDoc, STATE, { value: state })
 
   for (let objectId of Object.keys(updated)) {
     if (updated[objectId] instanceof Table) {
@@ -50,14 +50,14 @@ function updateRootObject(doc, updated, inbound, state) {
  * operations for the same object and key, we keep only the most recent. Returns
  * the filtered list of operations.
  */
-function ensureSingleAssignment(ops) {
+function ensureSingleAssignment (ops) {
   let assignments = {}, result = []
 
   for (let i = ops.length - 1; i >= 0; i--) {
     const op = ops[i], { obj, key, action } = op
     if (['set', 'del', 'link'].includes(action)) {
       if (!assignments[obj]) {
-        assignments[obj] = {[key]: true}
+        assignments[obj] = { [key]: true }
         result.push(op)
       } else if (!assignments[obj][key]) {
         assignments[obj][key] = true
@@ -77,7 +77,7 @@ function ensureSingleAssignment(ops) {
  * type, the details of the change are taken from the context object `context`.
  * `message` is an optional human-readable string describing the change.
  */
-function makeChange(doc, requestType, context, message) {
+function makeChange (doc, requestType, context, message) {
   const actor = getActorId(doc)
   if (!actor) {
     throw new Error('Actor ID must be initialized with setActorId() before making a change')
@@ -87,7 +87,7 @@ function makeChange(doc, requestType, context, message) {
   const deps = Object.assign({}, state.deps)
   delete deps[actor]
 
-  const request = {requestType, actor, seq: state.seq, deps}
+  const request = { requestType, actor, seq: state.seq, deps }
   if (message !== undefined) {
     request.message = message
   }
@@ -118,7 +118,7 @@ function makeChange(doc, requestType, context, message) {
  * and to `false` if the patch is a transient local (optimistically applied)
  * change from the frontend.
  */
-function applyPatchToDoc(doc, patch, state, fromBackend) {
+function applyPatchToDoc (doc, patch, state, fromBackend) {
   const actor = getActorId(doc)
   const inbound = Object.assign({}, doc[INBOUND])
   const updated = {}
@@ -172,7 +172,7 @@ function applyPatchToDoc(doc, patch, state, fromBackend) {
  * A third scenario is concurrent assignment to the same list element or map key;
  * this should create a conflict.
  */
-function transformRequest(request, patch) {
+function transformRequest (request, patch) {
   let transformed = []
 
   local_loop:
@@ -183,9 +183,9 @@ function transformRequest(request, patch) {
       // If the incoming patch modifies list indexes (because it inserts or removes),
       // adjust the indexes in local diffs accordingly
       if (local.obj === remote.obj && local.type === 'list' &&
-          ['insert', 'set', 'remove'].includes(local.action)) {
-        if (remote.action === 'insert' && remote.index <=  local.index) local.index += 1
-        if (remote.action === 'remove' && remote.index <   local.index) local.index -= 1
+        ['insert', 'set', 'remove'].includes(local.action)) {
+        if (remote.action === 'insert' && remote.index <= local.index) local.index += 1
+        if (remote.action === 'remove' && remote.index < local.index) local.index -= 1
         if (remote.action === 'remove' && remote.index === local.index) {
           if (local.action === 'set') local.action = 'insert'
           if (local.action === 'remove') continue local_loop // drop this diff
@@ -201,9 +201,9 @@ function transformRequest(request, patch) {
 /**
  * Creates an empty document object with no changes.
  */
-function init(options) {
+function init (options) {
   if (typeof options === 'string') {
-    options = {actorId: options}
+    options = { actorId: options }
   } else if (typeof options === 'undefined') {
     options = {}
   } else if (!isObject(options)) {
@@ -213,18 +213,18 @@ function init(options) {
     options.actorId = uuid()
   }
 
-  const root = {}, cache = {[ROOT_ID]: root}
-  const state = {seq: 0, requests: [], deps: {}, canUndo: false, canRedo: false}
+  const root = {}, cache = { [ROOT_ID]: root }
+  const state = { seq: 0, requests: [], deps: {}, canUndo: false, canRedo: false }
   if (options.backend) {
     state.backendState = options.backend.init()
   }
-  Object.defineProperty(root, '_actorId', {value: options.actorId})
-  Object.defineProperty(root, OBJECT_ID, {value: ROOT_ID})
-  Object.defineProperty(root, OPTIONS,   {value: Object.freeze(options)})
-  Object.defineProperty(root, CONFLICTS, {value: Object.freeze({})})
-  Object.defineProperty(root, CACHE,     {value: Object.freeze(cache)})
-  Object.defineProperty(root, INBOUND,   {value: Object.freeze({})})
-  Object.defineProperty(root, STATE,     {value: Object.freeze(state)})
+  Object.defineProperty(root, '_actorId', { value: options.actorId })
+  Object.defineProperty(root, OBJECT_ID, { value: ROOT_ID })
+  Object.defineProperty(root, OPTIONS, { value: Object.freeze(options) })
+  Object.defineProperty(root, CONFLICTS, { value: Object.freeze({}) })
+  Object.defineProperty(root, CACHE, { value: Object.freeze(cache) })
+  Object.defineProperty(root, INBOUND, { value: Object.freeze({}) })
+  Object.defineProperty(root, STATE, { value: Object.freeze(state) })
   return Object.freeze(root)
 }
 
@@ -237,7 +237,7 @@ function init(options) {
  * is the change request to send to the backend. If nothing was actually
  * changed, returns the original `doc` and a `null` change request.
  */
-function change(doc, message, callback) {
+function change (doc, message, callback) {
   if (doc[OBJECT_ID] !== ROOT_ID) {
     throw new TypeError('The first argument to Automerge.change must be the document root')
   }
@@ -275,7 +275,7 @@ function change(doc, message, callback) {
  * Returns a two-element array `[doc, request]` where `doc` is the updated
  * document, and `request` is the change request to send to the backend.
  */
-function emptyChange(doc, message) {
+function emptyChange (doc, message) {
   if (message !== undefined && typeof message !== 'string') {
     throw new TypeError('Change message must be a string')
   }
@@ -293,7 +293,7 @@ function emptyChange(doc, message) {
  * If it is the result of a local change, the `seq` field from the change
  * request should be included in the patch, so that we can match them up here.
  */
-function applyPatch(doc, patch) {
+function applyPatch (doc, patch) {
   const state = Object.assign({}, doc[STATE])
   let baseDoc
 
@@ -334,14 +334,14 @@ function applyPatch(doc, patch) {
  * Returns `true` if undo is currently possible on the document `doc` (because
  * there is a local change that has not already been undone); `false` if not.
  */
-function canUndo(doc) {
+function canUndo (doc) {
   return !!doc[STATE].canUndo && !isUndoRedoInFlight(doc)
 }
 
 /**
  * Returns `true` if one of the pending requests is an undo or redo.
  */
-function isUndoRedoInFlight(doc) {
+function isUndoRedoInFlight (doc) {
   return doc[STATE].requests.some(req => ['undo', 'redo'].includes(req.requestType))
 }
 
@@ -353,7 +353,7 @@ function isUndoRedoInFlight(doc) {
  * immediately: only after the request is sent to the backend, and the backend
  * responds with a patch, does the user-visible document update actually happen.
  */
-function undo(doc, message) {
+function undo (doc, message) {
   if (message !== undefined && typeof message !== 'string') {
     throw new TypeError('Change message must be a string')
   }
@@ -370,7 +370,7 @@ function undo(doc, message) {
  * Returns `true` if redo is currently possible on the document `doc` (because
  * a prior action was an undo that has not already been redone); `false` if not.
  */
-function canRedo(doc) {
+function canRedo (doc) {
   return !!doc[STATE].canRedo && !isUndoRedoInFlight(doc)
 }
 
@@ -383,7 +383,7 @@ function canRedo(doc) {
  * and the backend responds with a patch, does the user-visible document
  * update actually happen.
  */
-function redo(doc, message) {
+function redo (doc, message) {
   if (message !== undefined && typeof message !== 'string') {
     throw new TypeError('Change message must be a string')
   }
@@ -399,14 +399,14 @@ function redo(doc, message) {
 /**
  * Returns the Automerge object ID of the given object.
  */
-function getObjectId(object) {
+function getObjectId (object) {
   return object[OBJECT_ID]
 }
 
 /**
  * Returns the Automerge actor ID of the given document.
  */
-function getActorId(doc) {
+function getActorId (doc) {
   return doc[STATE].actorId || doc[OPTIONS].actorId
 }
 
@@ -414,8 +414,8 @@ function getActorId(doc) {
  * Sets the Automerge actor ID on the document object `doc`, returning a
  * document object with updated metadata.
  */
-function setActorId(doc, actorId) {
-  const state = Object.assign({}, doc[STATE], {actorId})
+function setActorId (doc, actorId) {
+  const state = Object.assign({}, doc[STATE], { actorId })
   return updateRootObject(doc, {}, doc[INBOUND], state)
 }
 
@@ -426,7 +426,7 @@ function setActorId(doc, actorId) {
  * returns a list that contains null for non-conflicting indexes and a conflict
  * set otherwise.
  */
-function getConflicts(object) {
+function getConflicts (object) {
   return object[CONFLICTS]
 }
 
@@ -434,11 +434,11 @@ function getConflicts(object) {
  * Returns the backend state associated with the document `doc` (only used if
  * a backend implementation is passed to `init()`).
  */
-function getBackendState(doc) {
+function getBackendState (doc) {
   return doc[STATE].backendState
 }
 
-function getElementIds(list) {
+function getElementIds (list) {
   return list[ELEM_IDS]
 }
 
