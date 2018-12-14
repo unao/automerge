@@ -1,7 +1,8 @@
 import { OBJECT_ID, ELEM_IDS, MAX_ELEM } from './constants'
+import { ObjectId } from '../types'
 
 export class Text {
-  constructor (objectId, elems, maxElem) {
+  constructor (objectId: ObjectId, readonly elems: any[] = [], readonly maxElem?: number) {
     return makeInstance(objectId, elems, maxElem)
   }
 
@@ -9,40 +10,42 @@ export class Text {
     return this.elems.length
   }
 
-  get (index) {
+  get (index: number) {
     return this.elems[index].value
   }
 
-  getElemId (index) {
+  getElemId (index: number) {
     return this.elems[index].elemId
   }
 
   [Symbol.iterator] () {
-    let elems = this.elems, index = -1
+    let elems = this.elems
+    let index = -1
     return {
       next () {
         index += 1
         if (index < elems.length) {
-          return {done: false, value: elems[index].value}
+          return { done: false, value: elems[index].value }
         } else {
-          return {done: true}
+          return { done: true }
         }
       }
     }
   }
 }
 
+// TODO: reflect in typescript
 // Read-only methods that can delegate to the JavaScript built-in array
 for (let method of ['concat', 'every', 'filter', 'find', 'findIndex', 'forEach', 'includes',
-                    'indexOf', 'join', 'lastIndexOf', 'map', 'reduce', 'reduceRight',
-                    'slice', 'some', 'toLocaleString', 'toString']) {
-  Text.prototype[method] = function (...args) {
+  'indexOf', 'join', 'lastIndexOf', 'map', 'reduce', 'reduceRight',
+  'slice', 'some', 'toLocaleString', 'toString']) {
+  (Text as any).prototype[method] = function (...args: any[]) {
     const array = [...this]
-    return array[method].call(array, ...args)
+    return array[method as any].call(array, ...args)
   }
 }
 
-function makeInstance(objectId, elems, maxElem) {
+function makeInstance (objectId: ObjectId, elems: any[] = [], maxElem?: number) {
   const instance = Object.create(Text.prototype)
   instance[OBJECT_ID] = objectId
   instance.elems = elems || []
@@ -54,6 +57,6 @@ function makeInstance(objectId, elems, maxElem) {
  * Returns the elemId of the `index`-th element. `object` may be either
  * a list object or a Text object.
  */
-export function getElemId(object, index) {
+export function getElemId (object: any, index: number) {
   return (object instanceof Text) ? object.getElemId(index) : object[ELEM_IDS][index]
 }

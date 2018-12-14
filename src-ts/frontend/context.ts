@@ -19,7 +19,7 @@ export class Context {
   ops: OpRaw[]
   diffs: Diff[]
 
-  private instantiateObject!: Function // FIXME: proper typing
+  public instantiateObject!: Function // FIXME: proper typing
 
   constructor (doc: any, readonly actorId: Actor) {
     this.actorId = actorId
@@ -92,7 +92,6 @@ export class Context {
       }
       this.apply({ action: 'create', type: 'table', obj: objectId })
       this.addOp({ action: 'makeTable', obj: objectId })
-      // @ts-ignore check Table.columns
       this.setMapKey(objectId, 'table', 'columns', value.columns)
 
     } else if (Array.isArray(value)) {
