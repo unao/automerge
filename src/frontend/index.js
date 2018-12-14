@@ -1,6 +1,6 @@
 const { OPTIONS, CACHE, INBOUND, STATE, OBJECT_ID, CONFLICTS, CHANGE, ELEM_IDS } = require('./constants')
-const { ROOT_ID, isObject } = require('../src/common')
-const uuid = require('../src/uuid')
+const { ROOT_ID, isObject } = require('../common')
+const uuid = require('../uuid')
 const { applyDiffs, updateParentObjects, cloneRootObject } = require('./apply_patch')
 const { rootObjectProxy } = require('./proxies')
 const { Context } = require('./context')

@@ -1,4 +1,4 @@
-const { ROOT_ID } = require('../src/common')
+const { ROOT_ID } = require('../common')
 const { CHANGE } = require('./constants')
 const { Text } = require('./text')
 const { Table } = require('./table')

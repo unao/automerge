@@ -1,7 +1,7 @@
 const transit = require('transit-immutable-js')
 const uuid = require('./uuid')
-const Frontend = require('../frontend')
-const Backend = require('../backend')
+const Frontend = require('./frontend')
+const Backend = require('./backend')
 const { isObject } = require('./common')
 
 /**

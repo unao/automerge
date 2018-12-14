@@ -1,6 +1,6 @@
 const { Set } = require('immutable')
-const Frontend = require('../frontend')
-const Backend = require('../backend')
+const Frontend = require('./frontend')
+const Backend = require('./backend')
 
 class WatchableDoc {
   constructor (doc) {

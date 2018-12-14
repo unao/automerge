@@ -1,5 +1,5 @@
 const { OBJECT_ID, CONFLICTS } = require('./constants')
-const { isObject } = require('../src/common')
+const { isObject } = require('../common')
 
 function compareRows(properties, row1, row2) {
   for (let prop of properties) {

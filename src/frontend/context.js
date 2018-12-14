@@ -2,8 +2,8 @@ const { CACHE, INBOUND, OBJECT_ID, CONFLICTS, MAX_ELEM } = require('./constants'
 const { applyDiffs } = require('./apply_patch')
 const { Text, getElemId } = require('./text')
 const { Table } = require('./table')
-const { isObject } = require('../src/common')
-const uuid = require('../src/uuid')
+const { isObject } = require('../common')
+const uuid = require('../uuid')
 
 
 /**

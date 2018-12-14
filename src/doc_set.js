@@ -1,7 +1,7 @@
 const { Map, Set } = require('immutable')
 const uuid = require('./uuid')
-const Frontend = require('../frontend')
-const Backend = require('../backend')
+const Frontend = require('./frontend')
+const Backend = require('./backend')
 
 class DocSet {
   constructor () {

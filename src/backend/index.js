@@ -1,5 +1,5 @@
 const { Map, List, fromJS } = require('immutable')
-const { isObject, lessOrEqual } = require('../src/common')
+const { isObject, lessOrEqual } = require('../common')
 const OpSet = require('./op_set')
 
 class MaterializationContext {

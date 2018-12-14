@@ -1,7 +1,7 @@
 const { Map, fromJS } = require('immutable')
 const { lessOrEqual } = require('./common')
-const Frontend = require('../frontend')
-const Backend = require('../backend')
+const Frontend = require('./frontend')
+const Backend = require('./backend')
 
 // Updates the vector clock for `docId` in `clockMap` (mapping from docId to vector clock)
 // by merging in the new vector clock `clock`. Returns the updated `clockMap`, in which each node's
