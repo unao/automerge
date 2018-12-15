@@ -3,11 +3,17 @@ import { lessOrEqual } from './common'
 import * as Frontend from './frontend'
 import * as Backend from './backend'
 
+import { ObjectId, Clock, Doc, Change } from './types'
+import { DocSet } from './doc_set'
+
+type Message = { docId: ObjectId, clock: any, changes?: Change[] }
+type SendMsg = (msg: Message) => any
+
 // Updates the vector clock for `docId` in `clockMap` (mapping from docId to vector clock)
 // by merging in the new vector clock `clock`. Returns the updated `clockMap`, in which each node's
 // sequence number has been set to the maximum for that node.
-function clockUnion(clockMap, docId, clock) {
-  clock = clockMap.get(docId, Map()).mergeWith((x, y) => Math.max(x, y), clock)
+function clockUnion (clockMap: Map<ObjectId, any>, docId: ObjectId, clock: Clock) {
+  clock = clockMap.get(docId, Map()).mergeWith((x: Clock, y: Clock) => Math.max(x, y), clock)
   return clockMap.set(docId, clock)
 }
 
@@ -31,7 +37,12 @@ function clockUnion(clockMap, docId, clock) {
 // ourClock is the most recent VClock that we've advertised to the peer (i.e. where we've
 // told the peer that we have it).
 export class Connection {
-  constructor (docSet, sendMsg) {
+  _docSet: DocSet
+  _sendMsg: SendMsg
+  _theirClock: Map<any, any>
+  _ourClock: Map<any, any>
+  _docChangedHandler: (docId: ObjectId, doc: Doc) => any
+  constructor (docSet: DocSet, sendMsg: SendMsg) {
     this._docSet = docSet
     this._sendMsg = sendMsg
     this._theirClock = Map()
@@ -48,14 +59,14 @@ export class Connection {
     this._docSet.unregisterHandler(this._docChangedHandler)
   }
 
-  sendMsg (docId, clock, changes) {
-    const msg = {docId, clock: clock.toJS()}
+  sendMsg (docId: ObjectId, clock: any, changes?: Change[]) {
+    const msg = { docId, clock: clock.toJS() } as Message
     this._ourClock = clockUnion(this._ourClock, docId, clock)
     if (changes) msg.changes = changes
     this._sendMsg(msg)
   }
 
-  maybeSendChanges (docId) {
+  maybeSendChanges (docId: ObjectId) {
     const doc = this._docSet.getDoc(docId)
     const state = Frontend.getBackendState(doc)
     const clock = state.getIn(['opSet', 'clock'])
@@ -73,12 +84,12 @@ export class Connection {
   }
 
   // Callback that is called by the docSet whenever a document is changed
-  docChanged (docId, doc) {
+  docChanged (docId: ObjectId, doc: Doc) {
     const state = Frontend.getBackendState(doc)
     const clock = state.getIn(['opSet', 'clock'])
     if (!clock) {
       throw new TypeError('This object cannot be used for network sync. ' +
-                          'Are you trying to sync a snapshot from the history?')
+        'Are you trying to sync a snapshot from the history?')
     }
 
     if (!lessOrEqual(this._ourClock.get(docId, Map()), clock)) {
@@ -88,7 +99,7 @@ export class Connection {
     this.maybeSendChanges(docId)
   }
 
-  receiveMsg (msg) {
+  receiveMsg (msg: Message) {
     if (msg.clock) {
       this._theirClock = clockUnion(this._theirClock, msg.docId, fromJS(msg.clock))
     }

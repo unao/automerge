@@ -37,7 +37,7 @@ export type Inbound = any
 
 export type Context = any
 
-export type Clock = {}
+export type Clock = Timestamp
 
 export interface Conflict { actor: Actor, value: any, link?: boolean }
 
