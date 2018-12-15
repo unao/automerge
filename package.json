@@ -12,13 +12,13 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@types/uuid": "^3.4.4",
     "immutable": "^3.8.2",
     "transit-immutable-js": "^0.7.0",
     "transit-js": "^0.8.861",
     "uuid": "3.1.0"
   },
   "devDependencies": {
+    "@types/uuid": "^3.4.4",
     "@types/immutable": "^3.8.7",
     "babel-core": "^6.26.3",
     "babel-loader": "^7.1.4",

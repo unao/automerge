@@ -2,7 +2,7 @@ import { Map, Set } from 'immutable'
 import * as Frontend from './frontend'
 import * as Backend from './backend'
 
-class DocSet {
+export class DocSet {
   constructor () {
     this.docs = Map()
     this.handlers = Set()
@@ -39,5 +39,3 @@ class DocSet {
     this.handlers = this.handlers.remove(handler)
   }
 }
-
-module.exports = DocSet

@@ -30,7 +30,7 @@ function clockUnion(clockMap, docId, clock) {
 //
 // ourClock is the most recent VClock that we've advertised to the peer (i.e. where we've
 // told the peer that we have it).
-class Connection {
+export class Connection {
   constructor (docSet, sendMsg) {
     this._docSet = docSet
     this._sendMsg = sendMsg
@@ -107,5 +107,3 @@ class Connection {
     return this._docSet.getDoc(msg.docId)
   }
 }
-
-module.exports = Connection
