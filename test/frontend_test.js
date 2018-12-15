@@ -1,9 +1,9 @@
 const assert = require('assert')
-const Frontend = require('../src/frontend')
-const Backend = require('../src/backend')
+const Frontend = require('../lib/frontend')
+const Backend = require('../lib/backend')
 const ROOT_ID = '00000000-0000-0000-0000-000000000000'
-const uuid = require('../src/uuid').default
-const { STATE } = require('../src/frontend/constants')
+const uuid = require('../lib/uuid').default
+const { STATE } = require('../lib/frontend/constants')
 
 describe('Frontend', () => {
   it('should be an empty object by default', () => {

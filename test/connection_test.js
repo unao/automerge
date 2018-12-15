@@ -1,6 +1,6 @@
 const assert = require('assert')
 const sinon = require('sinon')
-const Automerge = process.env.TEST_DIST === '1' ? require('../dist/automerge') : require('../src/automerge')
+const Automerge = process.env.TEST_DIST === '1' ? require('../dist/automerge') : require('../lib/automerge')
 const Connection = Automerge.Connection
 const DocSet = Automerge.DocSet
 

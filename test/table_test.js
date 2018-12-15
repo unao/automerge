@@ -1,9 +1,9 @@
 const assert = require('assert')
-const Automerge = process.env.TEST_DIST === '1' ? require('../dist/automerge') : require('../src/automerge')
+const Automerge = process.env.TEST_DIST === '1' ? require('../dist/automerge') : require('../lib/automerge')
 const Frontend = Automerge.Frontend
 const Backend = Automerge.Backend
 const ROOT_ID = '00000000-0000-0000-0000-000000000000'
-const uuid = require('../src/uuid').default
+const uuid = require('../lib/uuid').default
 const { equalsOneOf } = require('./helpers')
 
 // Example data
