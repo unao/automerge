@@ -51,6 +51,7 @@ export class Connection {
   }
 
   open () {
+    // @ts-ignore something wrong with the iterator types
     for (let docId of this._docSet.docIds) this.docChanged(docId, this._docSet.getDoc(docId))
     this._docSet.registerHandler(this._docChangedHandler)
   }
